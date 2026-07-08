@@ -1,0 +1,11 @@
+streamlit
+python-dotenv
+langchain
+langchain-community
+langchain-chroma
+langchain-groq
+chromadb
+sentence-transformers
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
