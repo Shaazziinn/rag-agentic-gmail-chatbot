@@ -1,7 +1,7 @@
 import json
 import re
 
-from gmail_utils import get_message, search_messages
+from gmail_utils import get_gmail_service, get_message, search_messages
 
 
 def extract_json_object(content):
@@ -221,7 +221,7 @@ User edit request:
     return revised_draft
 
 
-def run_agentic_chat(user_request, llm, service, max_results=3):
+def run_agentic_chat(user_request, llm, service=None, max_results=3):
     intent = classify_agent_intent(user_request, llm)
 
     if intent == "chat":
@@ -229,6 +229,9 @@ def run_agentic_chat(user_request, llm, service, max_results=3):
             "type": "chat",
             "content": create_chat_response(user_request, llm),
         }
+
+    if service is None:
+        service = get_gmail_service()
 
     query = create_gmail_query(user_request, llm)
     message_refs = search_messages(service, query, max_results=max_results)

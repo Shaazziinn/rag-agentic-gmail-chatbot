@@ -32,6 +32,12 @@ Create `.env`:
 GROQ_API_KEY=your_groq_api_key
 ```
 
+On Streamlit Cloud, add the same value in **Manage app → Settings → Secrets**:
+
+```toml
+GROQ_API_KEY = "your_groq_api_key"
+```
+
 ## Gmail API Setup
 
 1. Create a Google Cloud project.

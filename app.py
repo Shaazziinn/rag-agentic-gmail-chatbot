@@ -13,6 +13,7 @@ from rag_utils import (
     documents_from_uploaded_files,
 )
 from agent_utils import revise_email_draft, run_agentic_chat
+from config_utils import get_config_value
 from gmail_utils import get_gmail_service, send_email
 
 load_dotenv()
@@ -24,9 +25,19 @@ mode = st.sidebar.radio(
     ["RAG Chatbot", "Agentic Gmail Chatbot"],
 )
 
-llm = ChatGroq(
-    model="llama-3.3-70b-versatile"
-)
+def get_llm():
+    api_key = get_config_value("GROQ_API_KEY", st.secrets)
+    if not api_key:
+        st.error(
+            "Missing GROQ_API_KEY. Add it to Streamlit Cloud secrets or "
+            "your local .env file."
+        )
+        st.stop()
+
+    return ChatGroq(
+        model="llama-3.3-70b-versatile",
+        api_key=api_key,
+    )
 
 
 def load_documents(uploaded_files=None):
@@ -75,6 +86,7 @@ def show_rag_chatbot():
     question = st.chat_input("Ask something about the document")
 
     if question:
+        llm = get_llm()
         st.chat_message("user").write(question)
 
         vector_db = create_vector_database(uploaded_files)
@@ -216,6 +228,7 @@ def show_agentic_gmail_chatbot():
         {"role": "user", "content": user_request}
     )
     st.chat_message("user").write(user_request)
+    llm = get_llm()
 
     if st.session_state.pending_email_action:
         try:
@@ -248,8 +261,7 @@ def show_agentic_gmail_chatbot():
         st.rerun()
 
     try:
-        service = get_gmail_service()
-        result = run_agentic_chat(user_request, llm, service)
+        result = run_agentic_chat(user_request, llm)
     except Exception as exc:
         error_message = f"Agent error: {exc}"
         st.session_state.agent_messages.append(
