@@ -9,8 +9,10 @@ from langchain_text_splitters import CharacterTextSplitter
 
 from rag_utils import (
     SUPPORTED_FILE_TYPES,
+    describe_rag_context,
     documents_from_file_paths,
     documents_from_uploaded_files,
+    is_context_overview_question,
 )
 from agent_utils import revise_email_draft, run_agentic_chat
 from config_utils import get_config_value
@@ -51,8 +53,7 @@ def load_documents(uploaded_files=None):
     return documents
 
 
-def create_vector_database(uploaded_files=None):
-    documents = load_documents(uploaded_files)
+def create_vector_database(documents):
     embeddings = HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2",
         model_kwargs={"device": "cpu"},
@@ -86,14 +87,25 @@ def show_rag_chatbot():
     question = st.chat_input("Ask something about the document")
 
     if question:
-        llm = get_llm()
         st.chat_message("user").write(question)
 
-        vector_db = create_vector_database(uploaded_files)
+        documents = load_documents(uploaded_files)
+
+        if is_context_overview_question(question):
+            answer = describe_rag_context(documents)
+            st.chat_message("assistant").write(answer)
+            return
+
+        llm = get_llm()
+        vector_db = create_vector_database(documents)
         retriever = vector_db.as_retriever(search_kwargs={"k": 3})
         relevant_docs = retriever.invoke(question)
 
         context = "\n\n".join([doc.page_content for doc in relevant_docs])
+        sources = "\n".join(
+            f"- {document.metadata.get('source', 'Unknown source')}"
+            for document in documents
+        )
 
         prompt = f"""
 You are a helpful RAG chatbot.
@@ -104,6 +116,9 @@ and questions about what you can do.
 When the user asks about the uploaded or indexed documents, answer using only
 the retrieved context below. If the document answer is not in the context, say:
 "I don't know based on the provided document."
+
+Available context sources:
+{sources}
 
 Context:
 {context}
