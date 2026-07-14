@@ -53,11 +53,18 @@ def load_documents(uploaded_files=None):
     return documents
 
 
-def create_vector_database(documents):
-    embeddings = HuggingFaceEmbeddings(
+@st.cache_resource(show_spinner="Loading embedding model (first run only)...")
+def get_embeddings():
+    # Loading the model + torch is the expensive step; cache it so it happens
+    # once per app process instead of on every message.
+    return HuggingFaceEmbeddings(
         model_name="sentence-transformers/all-MiniLM-L6-v2",
         model_kwargs={"device": "cpu"},
     )
+
+
+def create_vector_database(documents):
+    embeddings = get_embeddings()
 
     splitter = CharacterTextSplitter(
         chunk_size=500,
@@ -72,6 +79,12 @@ def create_vector_database(documents):
     )
 
     return vector_db
+
+
+@st.cache_resource(show_spinner="Indexing knowledge base (first run only)...")
+def get_base_vector_database():
+    # The bundled sample never changes, so build its index once and reuse it.
+    return create_vector_database(load_documents())
 
 
 def show_rag_chatbot():
@@ -97,7 +110,12 @@ def show_rag_chatbot():
             return
 
         llm = get_llm()
-        vector_db = create_vector_database(documents)
+        if uploaded_files:
+            # User added their own files: build a fresh index for this session.
+            vector_db = create_vector_database(documents)
+        else:
+            # No uploads: reuse the cached index of the bundled sample.
+            vector_db = get_base_vector_database()
         retriever = vector_db.as_retriever(search_kwargs={"k": 3})
         relevant_docs = retriever.invoke(question)
 
